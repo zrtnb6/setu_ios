@@ -1,0 +1,63 @@
+name: iOS Unsigned IPA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/ios-ipa.yml"
+      - "Sources/**"
+      - "Tests/**"
+      - "Native/**"
+      - "project.yml"
+      - "Package.swift"
+      - "Podfile"
+      - "Podfile.lock"
+      - "SetuIOSApp.entitlements"
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build native Pixiv ECH transport
+        # SwiftPM requires the local binary target before manifest resolution.
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup target add --toolchain 1.98.1 aarch64-apple-darwin x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+          RUSTUP_TOOLCHAIN=1.98.1 bash Native/PixivTransport/build.sh
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+
+      - name: Build Release for device (unsigned)
+        run: |
+          xcodebuild -workspace SetuIOSApp.xcworkspace -scheme SetuIOSApp \
+            -configuration Release -sdk iphoneos \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH=$(find build/dd/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "App bundle: $APP_PATH"
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/
+          cd build
+          zip -qry SetuIOSApp-unsigned.ipa Payload
+          ls -lh SetuIOSApp-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SetuIOSApp-unsigned-ipa
+          path: build/SetuIOSApp-unsigned.ipa
+          if-no-files-found: error
