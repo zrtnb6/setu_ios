@@ -46,6 +46,112 @@ struct AiDrawView: View {
     private let estimatedPointsCost = 20
 
     var body: some View {
+        lifecycleDecorated
+            .toolbar {
+                #if os(iOS)
+                ToolbarItem(placement: .topBarLeading) {
+                    SetuToolbarLogo(assetName: "AiDrawLogo", accessibilityLabel: "AI 绘画")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { promptFocused = false }
+                        .accessibilityIdentifier("ai.draw.keyboard.done")
+                }
+                #endif
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        router.navigate(to: .aiHistory)
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .accessibilityLabel("AI 绘画历史")
+
+                    Menu {
+                        Button {
+                            router.navigate(to: .aiDeleteRequests)
+                        } label: {
+                            Label("我的删除记录", systemImage: "xmark.bin")
+                        }
+                        Button("清空当前草稿", role: .destructive) {
+                            showingClearDraftConfirmation = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("更多创作操作")
+                }
+            }
+            .task { await loadMetadata() }
+            .refreshable { await loadMetadata() }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                generationCTA
+            }
+            .alert("生成完成时通知我？", isPresented: $showingGenerationNotificationPrompt) {
+                Button("开启通知") {
+                    Task {
+                        _ = await pushNotifications.requestAuthorizationForGenerationUpdates()
+                        openPendingGeneration()
+                    }
+                }
+                Button("暂不", role: .cancel) {
+                    openPendingGeneration()
+                }
+            } message: {
+                Text("即使离开 App，也不会错过这次作品的完成提醒。系统权限只会在你确认后请求。")
+            }
+            .confirmationDialog("清空当前创作草稿？", isPresented: $showingClearDraftConfirmation, titleVisibility: .visible) {
+                Button("清空草稿", role: .destructive) {
+                    clearDraft()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("画面描述、风格、角色和高级设置都会恢复为推荐值。")
+            }
+    }
+
+    private var lifecycleDecorated: some View {
+        navigationDecorated
+            .onAppear {
+                applyDraftIfNeeded()
+                refreshEnabledStylePresets()
+            }
+            .onDisappear { saveDraft() }
+            .onChange(of: promptCn) { saveDraft() }
+            .onChange(of: positivePrompt) { saveDraft() }
+            .onChange(of: width) { saveDraft() }
+            .onChange(of: height) { saveDraft() }
+            .onChange(of: steps) { saveDraft() }
+            .onChange(of: cfg) { saveDraft() }
+            .onChange(of: nsfwMode) { saveDraft() }
+            .onChange(of: nsfwVisibilityLevel) { saveDraft() }
+            .onChange(of: generationMode) { saveDraft() }
+            .onChange(of: selectedCheckpoint) { saveDraft() }
+            .onChange(of: selectedLora) { saveDraft() }
+            .onChange(of: loraStrength) { saveDraft() }
+            .onChange(of: selectedCharacter) { saveDraft() }
+            .onChange(of: selectedSecondLora) { saveDraft() }
+            .onChange(of: secondLoraStrength) { saveDraft() }
+            .onChange(of: selectedSecondCharacter) { saveDraft() }
+            .onChange(of: styleTags) { saveDraft() }
+            .onChange(of: negativePrompt) { saveDraft() }
+            .onChange(of: styleNotes) { saveDraft() }
+    }
+
+    private var navigationDecorated: some View {
+        decoratedList
+            .setuFeedbackPresentation($feedback)
+            .setuRefreshAfterLogin(environment.authSession) { Task { await loadMetadata() } }
+            .setuRetry { Task { await loadMetadata() } }
+            .navigationTitle("AI 绘画")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("ai.draw.page")
+            .scrollDismissesKeyboard(.interactively)
+    }
+
+    private var decoratedList: some View {
         List {
             serviceNoticeSection
             quickPromptSection
@@ -56,100 +162,6 @@ struct AiDrawView: View {
         }
         .listStyle(.plain)
         .setuBackground()
-        .setuFeedbackPresentation($feedback)
-        .setuRefreshAfterLogin(environment.authSession) { Task { await loadMetadata() } }
-        .setuRetry { Task { await loadMetadata() } }
-        .navigationTitle("AI 绘画")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("ai.draw.page")
-        .scrollDismissesKeyboard(.interactively)
-        .onAppear {
-            applyDraftIfNeeded()
-            refreshEnabledStylePresets()
-        }
-        .onDisappear { saveDraft() }
-        .onChange(of: promptCn) { saveDraft() }
-        .onChange(of: positivePrompt) { saveDraft() }
-        .onChange(of: width) { saveDraft() }
-        .onChange(of: height) { saveDraft() }
-        .onChange(of: steps) { saveDraft() }
-        .onChange(of: cfg) { saveDraft() }
-        .onChange(of: nsfwMode) { saveDraft() }
-        .onChange(of: nsfwVisibilityLevel) { saveDraft() }
-        .onChange(of: generationMode) { saveDraft() }
-        .onChange(of: selectedCheckpoint) { saveDraft() }
-        .onChange(of: selectedLora) { saveDraft() }
-        .onChange(of: loraStrength) { saveDraft() }
-        .onChange(of: selectedCharacter) { saveDraft() }
-        .onChange(of: selectedSecondLora) { saveDraft() }
-        .onChange(of: secondLoraStrength) { saveDraft() }
-        .onChange(of: selectedSecondCharacter) { saveDraft() }
-        .onChange(of: styleTags) { saveDraft() }
-        .onChange(of: negativePrompt) { saveDraft() }
-        .onChange(of: styleNotes) { saveDraft() }
-        .toolbar {
-            #if os(iOS)
-            ToolbarItem(placement: .topBarLeading) {
-                SetuToolbarLogo(assetName: "AiDrawLogo", accessibilityLabel: "AI 绘画")
-            }
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("完成") { promptFocused = false }
-                    .accessibilityIdentifier("ai.draw.keyboard.done")
-            }
-            #endif
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    router.navigate(to: .aiHistory)
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                }
-                .accessibilityLabel("AI 绘画历史")
-
-                Menu {
-                    Button {
-                        router.navigate(to: .aiDeleteRequests)
-                    } label: {
-                        Label("我的删除记录", systemImage: "xmark.bin")
-                    }
-                    Button("清空当前草稿", role: .destructive) {
-                        showingClearDraftConfirmation = true
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("更多创作操作")
-            }
-        }
-        .task { await loadMetadata() }
-        .refreshable { await loadMetadata() }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            generationCTA
-        }
-        .alert("生成完成时通知我？", isPresented: $showingGenerationNotificationPrompt) {
-            Button("开启通知") {
-                Task {
-                    _ = await pushNotifications.requestAuthorizationForGenerationUpdates()
-                    openPendingGeneration()
-                }
-            }
-            Button("暂不", role: .cancel) {
-                openPendingGeneration()
-            }
-        } message: {
-            Text("即使离开 App，也不会错过这次作品的完成提醒。系统权限只会在你确认后请求。")
-        }
-        .confirmationDialog("清空当前创作草稿？", isPresented: $showingClearDraftConfirmation, titleVisibility: .visible) {
-            Button("清空草稿", role: .destructive) {
-                clearDraft()
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("画面描述、风格、角色和高级设置都会恢复为推荐值。")
-        }
     }
 
     @ViewBuilder
