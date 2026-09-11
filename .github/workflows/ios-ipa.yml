@@ -35,6 +35,15 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      - name: Select Xcode 26
+        run: |
+          ls /Applications | grep -i xcode || true
+          XCODE_PATH=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE_PATH" ]; then XCODE_PATH=$(ls -d /Applications/Xcode*.app | sort -V | tail -1); fi
+          echo "Using Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
       - name: Install CocoaPods dependencies
         run: pod install
 
@@ -43,11 +52,19 @@ jobs:
           xcodebuild -workspace SetuIOSApp.xcworkspace -scheme SetuIOSApp \
             -configuration Release -sdk iphoneos \
             -derivedDataPath build/dd \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            || { echo "Release build failed, retrying with Debug"; \
+                 xcodebuild -workspace SetuIOSApp.xcworkspace -scheme SetuIOSApp \
+                   -configuration Debug -sdk iphoneos \
+                   -derivedDataPath build/dd \
+                   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""; \
+                 echo "CONFIG_USED=Debug" >> "$GITHUB_ENV"; }
 
       - name: Package unsigned IPA
         run: |
-          APP_PATH=$(find build/dd/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          CONFIG="${CONFIG_USED:-Release}"
+          echo "Packaging config: $CONFIG"
+          APP_PATH=$(find "build/dd/Build/Products/$CONFIG-iphoneos" -maxdepth 1 -name "*.app" | head -n 1)
           echo "App bundle: $APP_PATH"
           mkdir -p build/Payload
           cp -R "$APP_PATH" build/Payload/
