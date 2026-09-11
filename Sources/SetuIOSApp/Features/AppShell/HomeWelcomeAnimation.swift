@@ -112,15 +112,18 @@ private struct WelcomeMascot: View {
             let t = max(0, elapsed - Double(index) * 0.12)
             let wave = sin(t * 13) * sin(min(1, t / 1.25) * .pi)
             func vertex(_ p: CGPoint) -> CGPoint {
+                let pointX = Double(p.x)
+                let pointY = Double(p.y)
                 let hx: Double = index == 0 ? 195 : 68
                 let hy: Double = index == 0 ? 100 : 112
-                let weight = exp(-((p.x - hx) * (p.x - hx) / 700 + (p.y - hy) * (p.y - hy) / 750))
+                let weight = exp(-((pointX - hx) * (pointX - hx) / 700.0 + (pointY - hy) * (pointY - hy) / 750.0))
                 let angle = 0.28 * wave * weight
                 let px: Double = index == 0 ? 178 : 85
-                let dx = p.x - px, dy = p.y - 145
-                let sway = (index == 0 ? 4.0 : -4.0) * sin(t * 3) * max(0, 1 - p.y / 250)
-                return CGPoint(x: px + dx * cos(angle) - dy * sin(angle) + sway + 16,
-                               y: 145 + dx * sin(angle) + dy * cos(angle) - 2.4 * sin(t * 5) * max(0, 1 - p.y / 256) + 16)
+                let dx = pointX - px
+                let dy = pointY - 145.0
+                let sway = (index == 0 ? 4.0 : -4.0) * sin(t * 3) * max(0.0, 1 - pointY / 250.0)
+                return CGPoint(x: px + dx * cos(angle) - dy * sin(angle) + sway + 16.0,
+                               y: 145.0 + dx * sin(angle) + dy * cos(angle) - 2.4 * sin(t * 5) * max(0.0, 1 - pointY / 256.0) + 16.0)
             }
             func triangle(_ p: CGPoint, _ q: CGPoint, _ r: CGPoint) {
                 let a = vertex(p), b = vertex(q), c = vertex(r)

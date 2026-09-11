@@ -52,6 +52,7 @@ jobs:
           xcodebuild -workspace SetuIOSApp.xcworkspace -scheme SetuIOSApp \
             -configuration Release -sdk iphoneos \
             -derivedDataPath build/dd \
+            SWIFT_COMPILATION_MODE=incremental \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             || { echo "Release build failed, retrying with Debug"; \
                  xcodebuild -workspace SetuIOSApp.xcworkspace -scheme SetuIOSApp \
