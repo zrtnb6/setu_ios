@@ -110,7 +110,7 @@ struct AiDrawView: View {
     }
 
     private var lifecycleDecorated: some View {
-        navigationDecorated
+        draftWatchA
             .onAppear {
                 applyDraftIfNeeded()
                 refreshEnabledStylePresets()
@@ -124,6 +124,10 @@ struct AiDrawView: View {
             .onChange(of: cfg) { saveDraft() }
             .onChange(of: nsfwMode) { saveDraft() }
             .onChange(of: nsfwVisibilityLevel) { saveDraft() }
+    }
+
+    private var draftWatchA: some View {
+        draftWatchB
             .onChange(of: generationMode) { saveDraft() }
             .onChange(of: selectedCheckpoint) { saveDraft() }
             .onChange(of: selectedLora) { saveDraft() }
@@ -132,6 +136,10 @@ struct AiDrawView: View {
             .onChange(of: selectedSecondLora) { saveDraft() }
             .onChange(of: secondLoraStrength) { saveDraft() }
             .onChange(of: selectedSecondCharacter) { saveDraft() }
+    }
+
+    private var draftWatchB: some View {
+        navigationDecorated
             .onChange(of: styleTags) { saveDraft() }
             .onChange(of: negativePrompt) { saveDraft() }
             .onChange(of: styleNotes) { saveDraft() }
