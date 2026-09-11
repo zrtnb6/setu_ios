@@ -67,9 +67,7 @@ public struct JmAlbum: Decodable, Identifiable, Sendable, Hashable {
         }.first
         tags = Self.decodeTags(container)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        likes = (try? container.decode(String.self, forKey: .likes))
-            ?? (try? container.decode(Int.self, forKey: .likes)).map(String.init)
-            ?? (try? container.decode(Int.self, forKey: .liked)).map(String.init)
+        likes = Self.decodeLikes(container)
         let series = try container.decodeIfPresent([JmSeriesNode].self, forKey: .series) ?? []
         let albumTitle = title
         let albumID = id
@@ -80,6 +78,19 @@ public struct JmAlbum: Decodable, Identifiable, Sendable, Hashable {
                 JmChapter(id: node.id, title: node.name ?? albumTitle)
             }
         }
+    }
+
+    private static func decodeLikes(_ container: KeyedDecodingContainer<CodingKeys>) -> String? {
+        if let text = try? container.decode(String.self, forKey: .likes) {
+            return text
+        }
+        if let number = try? container.decode(Int.self, forKey: .likes) {
+            return String(number)
+        }
+        if let liked = try? container.decode(Int.self, forKey: .liked) {
+            return String(liked)
+        }
+        return nil
     }
 
     private static func decodeAuthor(_ container: KeyedDecodingContainer<CodingKeys>) -> String? {
